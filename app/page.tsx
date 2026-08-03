@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import VinHero from './components/VinHero';
 import VehicleReport from './components/VehicleReport';
 import AdSlot from './components/AdSlot';
 import AdBlockModal from './components/AdBlockModal';
-import { Turnstile } from '@marsidev/react-turnstile';
+import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile';
 
 export default function Home() {
   const [report, setReport] = useState<string | null>(null);
@@ -13,31 +13,30 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [currentVin, setCurrentVin] = useState<string>('');
   
-  // Track the CAPTCHA validation token
+  // Track Turnstile Token and Ref for auto-resetting single-use tokens
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance>(null);
 
   // Adsterra Banner Keys
   const DESKTOP_BANNER_KEY = '1dd64051e9d639d812a0e21d0c1c421f'; // 728x90
   const MOBILE_BANNER_KEY  = '3f22827be29f8731c42231da442b0b56'; // 300x250
 
   const handleDecode = async (vin: string) => {
+    // 1. Prevent submission if CAPTCHA isn't solved
+    if (!turnstileToken) {
+      setError('Please complete the security check (CAPTCHA) before decoding.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setReport(null);
     setCurrentVin(vin);
 
-    // Prevent submission if the CAPTCHA isn't solved or loaded yet
-    if (!turnstileToken) {
-      setError('Please complete the security check (CAPTCHA) before decoding.');
-      setLoading(false);
-      return;
-    }
-
     try {
       const res = await fetch('/api/decode', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // Pass both the VIN and the token to your backend
         body: JSON.stringify({ vin, turnstileToken }), 
       });
 
@@ -48,10 +47,16 @@ export default function Home() {
       } else {
         setReport(data.report);
       }
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred.';
+      setError(message);
     } finally {
       setLoading(false);
+      
+      // CRITICAL FIX: Cloudflare Turnstile tokens expire upon first verification.
+      // Reset widget so the user can perform another decode without reloading.
+      setTurnstileToken(null);
+      turnstileRef.current?.reset();
     }
   };
 
@@ -69,7 +74,8 @@ export default function Home() {
         {/* ── CLOUDFLARE TURNSTILE WIDGET ── */}
         <div className="flex justify-center my-4">
           <Turnstile
-            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+            ref={turnstileRef}
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ''}
             onSuccess={(token) => setTurnstileToken(token)}
             onExpire={() => setTurnstileToken(null)}
             onError={() => setTurnstileToken(null)}

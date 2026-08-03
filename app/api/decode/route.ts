@@ -22,11 +22,11 @@ export async function POST(request: Request) {
   try {
     const { vin, turnstileToken } = await request.json();
 
-    // 1. CAPTCHA Verification (Blocks Bot Traffic)
+    // ── 1. CLOUDFLARE TURNSTILE CAPTCHA VERIFICATION ──
     if (TURNSTILE_SECRET_KEY) {
       if (!turnstileToken) {
         return NextResponse.json(
-          { error: 'CAPTCHA verification missing. Please complete the security check.' },
+          { error: 'Security check missing. Please complete the CAPTCHA.' },
           { status: 400 }
         );
       }
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // 2. Validate VIN Input & Syntax
+    // ── 2. VALIDATE VIN INPUT & SYNTAX ──
     if (!vin || typeof vin !== 'string' || vin.trim().length !== 17) {
       return NextResponse.json(
         { error: 'Invalid VIN. Please provide a valid 17-character VIN.' },
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Fetch official factory specs from NHTSA VPIC API
+    // ── 3. FETCH OFFICIAL SPECS FROM NHTSA VPIC API ──
     const nhtsaRes = await fetch(
       `https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${cleanVin}?format=json`,
       { headers: { Accept: 'application/json' }, cache: 'no-store' }
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
     const nhtsaData = await nhtsaRes.json();
     const results = nhtsaData.Results?.[0] || {};
 
-    // 4. Fetch live official Safety Recalls from NHTSA API
+    // ── 4. FETCH LIVE RECALLS FROM NHTSA API ──
     let recallStatus = 'Check Complete: No Open Safety Recalls Identified';
     try {
       const recallRes = await fetch(
@@ -98,13 +98,14 @@ export async function POST(request: Request) {
         }
       }
     } catch {
-      recallStatus = 'NHTSA Recall Database Unavailable';
+      recallStatus = 'NHTSA Recall Database Temporarily Unavailable';
     }
 
-    // 5. Multi-Key Serper API Fallback Loop
+    // ── 5. MULTI-KEY SERPER WEB SEARCH FALLBACK LOOP ──
     let webAuctionResults: string[] = [];
     if (SERPER_API_KEYS.length > 0) {
-      const searchQuery = `"${cleanVin}" (site:copart.com OR site:iaai.com OR site:bidfax.info OR site:stat.vin OR salvage OR accident)`;
+      // Optimized query to accurately find public salvage/auction listings
+      const searchQuery = `"${cleanVin}" salvage OR accident OR auction OR copart OR iaai OR bidfax`;
 
       for (const apiKey of SERPER_API_KEYS) {
         try {
@@ -114,27 +115,30 @@ export async function POST(request: Request) {
               'X-API-KEY': apiKey,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ q: searchQuery }),
+            body: JSON.stringify({ q: searchQuery, num: 5 }),
           });
 
           if (searchRes.ok) {
             const searchData = await searchRes.json();
-            webAuctionResults = (searchData.organic || [])
-              .slice(0, 3)
-              .map(
-                (item: { title: string; snippet: string; link: string }) =>
-                  `${item.title}: ${item.snippet} (${item.link})`
-              );
-            // Break loop on first working key
-            break;
+            const hits = searchData.organic || [];
+
+            if (hits.length > 0) {
+              webAuctionResults = hits
+                .slice(0, 3)
+                .map(
+                  (item: { title: string; snippet: string; link: string }) =>
+                    `• **${item.title}**: ${item.snippet} ([View Listing](${item.link}))`
+                );
+            }
+            break; // Exit loop on first working key
           }
         } catch {
-          // If a key fails or runs out of credits, automatically try the next key
+          // Automatic fallback to next key if fetch fails
         }
       }
     }
 
-    // 6. Build Base Data Payload
+    // ── 6. BUILD BASE DATA PAYLOAD ──
     const make = results.Make || 'N/A';
     const model = results.Model || 'N/A';
     const year = results.ModelYear || 'N/A';
@@ -164,7 +168,7 @@ export async function POST(request: Request) {
       'Official NHTSA Recall Status': recallStatus,
       'Auction & Salvage Web Check':
         webAuctionResults.length > 0
-          ? `Potential Records Found Online:\n${webAuctionResults.join('\n')}`
+          ? `Potential Public Records Found Online:\n${webAuctionResults.join('\n')}`
           : 'No public salvage auction records detected via search index',
       'Market Value Disclaimer':
         'Resale values vary significantly based on vehicle mileage, title status, and physical condition. Consult live regional market listings for accurate pricing.',
@@ -177,7 +181,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // 7. Multi-Key Groq AI Formatting Loop
+    // ── 7. MULTI-KEY GROQ AI FORMATTING LOOP ──
     if (GROQ_API_KEYS.length > 0) {
       for (const apiKey of GROQ_API_KEYS) {
         try {
@@ -194,11 +198,12 @@ export async function POST(request: Request) {
                   role: 'system',
                   content: `You are an expert automotive inspection engineer. Reformat the provided vehicle specs and search data into clean Markdown.
 
-STRICT ACCURACY INSTRUCTIONS:
+CRITICAL ACCURACY & FORMATTING INSTRUCTIONS:
+- You MUST preserve all links and snippets provided under "Auction & Salvage Web Check".
+- If "Auction & Salvage Web Check" contains web results, create a dedicated section titled "### 🔍 Online Salvage & Auction Records Found" and output the exact markdown links and snippets provided.
 - Do NOT make up specific dollar prices or fake accident guarantees.
 - Ensure "Factory Assembly Plant" is clearly stated as where the vehicle was originally manufactured.
-- Present any auction/salvage search results accurately. State clearly that official title brands require an official NMVTIS database lookup.
-- Format fields into bold title key-value pairs e.g. "**Make:** Ford".`,
+- Format fields into clean bold key-value pairs e.g. "**Make:** Ford".`,
                 },
                 {
                   role: 'user',
@@ -214,11 +219,11 @@ STRICT ACCURACY INSTRUCTIONS:
             const aiContent = groqData.choices?.[0]?.message?.content;
             if (aiContent) {
               markdownReport = aiContent;
-              break; // Break loop on successful response
+              break; // Exit loop on successful response
             }
           }
         } catch {
-          // If a Groq key fails or hits rate limits, proceed to the next key
+          // Automatic fallback to next Groq key if rate-limited
         }
       }
     }
