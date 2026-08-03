@@ -46,7 +46,7 @@ export default function Home() {
         <AdSlot id="ad-slot-top" />
 
         {/* Hero Input Section */}
-        <VinHero onDecode={handleDecode} isLoading={loading} />
+        <VinHero onDecode={handleDecode} loading={loading} />
 
         {/* Error Message */}
         {error && (

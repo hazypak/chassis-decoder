@@ -184,7 +184,7 @@ export function parseReport(report?: string): VehicleData {
     if (fieldName) {
       // Only set if not already populated (first match wins)
       if (!data[fieldName]) {
-      (data as unknown as Record<string, string>)[fieldName] = value;
+        (data as unknown as Record<string, string>)[fieldName] = value;
       }
     } else {
       // Store in extras with cleaned key
