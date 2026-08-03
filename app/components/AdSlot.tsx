@@ -6,7 +6,7 @@ interface AdSlotProps {
   width: number;
   height: number;
   adKey: string;
-  className?: string; // 👈 Added optional className here
+  className?: string; // 👈 Must be here
 }
 
 export default function AdSlot({
