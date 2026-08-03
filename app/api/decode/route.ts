@@ -1,14 +1,58 @@
 import { NextResponse } from 'next/server';
 
-const GROQ_API_KEYS = [
-  process.env.GROQ_API_KEY,
-  process.env.GROQ_API_KEY_FALLBACK,
-].filter(Boolean) as string[];
+// Helper to safely parse single or comma-separated API keys from environment variables
+const parseApiKeys = (envVar?: string): string[] => {
+  if (!envVar) return [];
+  return envVar
+    .split(',')
+    .map((key) => key.trim())
+    .filter(Boolean);
+};
+
+// Extracts multiple Groq & Serper keys (supports comma-separated values or legacy variables)
+const rawGroq = process.env.GROQ_API_KEYS || [process.env.GROQ_API_KEY, process.env.GROQ_API_KEY_FALLBACK].filter(Boolean).join(',');
+const GROQ_API_KEYS = parseApiKeys(rawGroq);
+
+const rawSerper = process.env.SERPER_API_KEYS || process.env.SERPER_API_KEY;
+const SERPER_API_KEYS = parseApiKeys(rawSerper);
+
+const TURNSTILE_SECRET_KEY = process.env.TURNSTILE_SECRET_KEY;
 
 export async function POST(request: Request) {
   try {
-    const { vin } = await request.json();
+    const { vin, turnstileToken } = await request.json();
 
+    // 1. CAPTCHA Verification (Blocks Bot Traffic)
+    if (TURNSTILE_SECRET_KEY) {
+      if (!turnstileToken) {
+        return NextResponse.json(
+          { error: 'CAPTCHA verification missing. Please complete the security check.' },
+          { status: 400 }
+        );
+      }
+
+      const turnstileRes = await fetch(
+        'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            secret: TURNSTILE_SECRET_KEY,
+            response: turnstileToken,
+          }),
+        }
+      );
+
+      const turnstileData = await turnstileRes.json();
+      if (!turnstileData.success) {
+        return NextResponse.json(
+          { error: 'Security check failed. Automated bot traffic detected.' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // 2. Validate VIN Input & Syntax
     if (!vin || typeof vin !== 'string' || vin.trim().length !== 17) {
       return NextResponse.json(
         { error: 'Invalid VIN. Please provide a valid 17-character VIN.' },
@@ -18,7 +62,14 @@ export async function POST(request: Request) {
 
     const cleanVin = vin.toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, '');
 
-    // 1. Fetch official raw factory specs from NHTSA
+    if (cleanVin.length !== 17) {
+      return NextResponse.json(
+        { error: 'Invalid VIN syntax. ISO standard VINs cannot contain letters I, O, or Q.' },
+        { status: 400 }
+      );
+    }
+
+    // 3. Fetch official factory specs from NHTSA VPIC API
     const nhtsaRes = await fetch(
       `https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${cleanVin}?format=json`,
       { headers: { Accept: 'application/json' }, cache: 'no-store' }
@@ -31,38 +82,92 @@ export async function POST(request: Request) {
     const nhtsaData = await nhtsaRes.json();
     const results = nhtsaData.Results?.[0] || {};
 
-    // 2. Build complete factory & historical evaluation payload
+    // 4. Fetch live official Safety Recalls from NHTSA API
+    let recallStatus = 'Check Complete: No Open Safety Recalls Identified';
+    try {
+      const recallRes = await fetch(
+        `https://api.nhtsa.gov/recalls/recallsByVin/${cleanVin}?format=json`,
+        { headers: { Accept: 'application/json' }, cache: 'no-store' }
+      );
+
+      if (recallRes.ok) {
+        const recallData = await recallRes.json();
+        const count = recallData.count || recallData.results?.length || 0;
+        if (count > 0) {
+          recallStatus = `⚠️ ${count} Open Safety Recall(s) Found on Record`;
+        }
+      }
+    } catch {
+      recallStatus = 'NHTSA Recall Database Unavailable';
+    }
+
+    // 5. Multi-Key Serper API Fallback Loop
+    let webAuctionResults: string[] = [];
+    if (SERPER_API_KEYS.length > 0) {
+      const searchQuery = `"${cleanVin}" (site:copart.com OR site:iaai.com OR site:bidfax.info OR site:stat.vin OR salvage OR accident)`;
+
+      for (const apiKey of SERPER_API_KEYS) {
+        try {
+          const searchRes = await fetch('https://google.serper.dev/search', {
+            method: 'POST',
+            headers: {
+              'X-API-KEY': apiKey,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ q: searchQuery }),
+          });
+
+          if (searchRes.ok) {
+            const searchData = await searchRes.json();
+            webAuctionResults = (searchData.organic || [])
+              .slice(0, 3)
+              .map(
+                (item: { title: string; snippet: string; link: string }) =>
+                  `${item.title}: ${item.snippet} (${item.link})`
+              );
+            // Break loop on first working key
+            break;
+          }
+        } catch {
+          // If a key fails or runs out of credits, automatically try the next key
+        }
+      }
+    }
+
+    // 6. Build Base Data Payload
     const make = results.Make || 'N/A';
     const model = results.Model || 'N/A';
     const year = results.ModelYear || 'N/A';
+
+    const plantLocation =
+      [results.PlantCity, results.PlantState, results.PlantCountry]
+        .filter(Boolean)
+        .join(', ') || 'N/A';
 
     const formattedFields: Record<string, string> = {
       'Make': make,
       'Model': model,
       'Model Year': year,
-      'Body Style': results.BodyClass || '',
-      'Vehicle Type': results.VehicleType || '',
-      'Trim': results.Trim || '',
-      'Series': results.Series || '',
-      'Displacement (L)': results.DisplacementL || '',
-      'Engine HP': results.EngineHP || '',
-      'Cylinders': results.EngineConfiguration || results.EngineCylinders || '',
-      'Fuel Type': results.FuelTypePrimary || '',
-      'Drive Type': results.DriveType || '',
-      'Transmission': results.TransmissionStyle || '',
-      'Manufacturer': results.Manufacturer || '',
-      'Plant City': results.PlantCity || '',
-      'Plant Country': results.PlantCountry || '',
-      'Plant State': results.PlantState || '',
-      'Doors': results.Doors || '',
-      // Detailed Historical Status Checks
-      'Accident History': 'No Major Structural Accidents Reported',
-      'Airbag Deployment': 'No Deployment Events Found',
-      'Auction Record': 'Copart / IAAI Registry Clear (No Salvage Sales)',
-      'Title Brand Status': 'Clean / Clear Title Verified',
-      'Odometer Status': 'Normal Mileage Progression (No Rollback Flag)',
-      'Recall Status': '0 Open Safety Recalls Identified',
-      'Estimated Value': `$${Math.floor(Math.random() * (45000 - 22000 + 1) + 22000).toLocaleString()} USD (Market Estimate)`,
+      'Body Style': results.BodyClass || 'N/A',
+      'Vehicle Type': results.VehicleType || 'N/A',
+      'Trim': results.Trim || 'N/A',
+      'Series': results.Series || 'N/A',
+      'Displacement (L)': results.DisplacementL ? `${results.DisplacementL}L` : 'N/A',
+      'Engine HP': results.EngineHP ? `${results.EngineHP} HP` : 'N/A',
+      'Cylinders': results.EngineConfiguration || results.EngineCylinders || 'N/A',
+      'Fuel Type': results.FuelTypePrimary || 'N/A',
+      'Drive Type': results.DriveType || 'N/A',
+      'Transmission': results.TransmissionStyle || 'N/A',
+      'Manufacturer': results.Manufacturer || 'N/A',
+      'Factory Assembly Plant': plantLocation,
+      'Doors': results.Doors || 'N/A',
+      'Official NHTSA Recall Status': recallStatus,
+      'Auction & Salvage Web Check':
+        webAuctionResults.length > 0
+          ? `Potential Records Found Online:\n${webAuctionResults.join('\n')}`
+          : 'No public salvage auction records detected via search index',
+      'Market Value Disclaimer':
+        'Resale values vary significantly based on vehicle mileage, title status, and physical condition. Consult live regional market listings for accurate pricing.',
     };
 
     let markdownReport = `### Vehicle Detailed Specification & History Report\n\n`;
@@ -72,7 +177,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // 3. Optional AI Enrichment
+    // 7. Multi-Key Groq AI Formatting Loop
     if (GROQ_API_KEYS.length > 0) {
       for (const apiKey of GROQ_API_KEYS) {
         try {
@@ -87,14 +192,20 @@ export async function POST(request: Request) {
               messages: [
                 {
                   role: 'system',
-                  content: 'You are an automotive inspection engineer. Reformat vehicle specs and history records into key-value Markdown lines starting with bold titles e.g. "**Accident History:** Clean".',
+                  content: `You are an expert automotive inspection engineer. Reformat the provided vehicle specs and search data into clean Markdown.
+
+STRICT ACCURACY INSTRUCTIONS:
+- Do NOT make up specific dollar prices or fake accident guarantees.
+- Ensure "Factory Assembly Plant" is clearly stated as where the vehicle was originally manufactured.
+- Present any auction/salvage search results accurately. State clearly that official title brands require an official NMVTIS database lookup.
+- Format fields into bold title key-value pairs e.g. "**Make:** Ford".`,
                 },
                 {
                   role: 'user',
-                  content: `Format this vehicle report:\n${markdownReport}`,
+                  content: `Reformat and structure this vehicle report:\n${markdownReport}`,
                 },
               ],
-              temperature: 0.2,
+              temperature: 0.1,
             }),
           });
 
@@ -103,11 +214,11 @@ export async function POST(request: Request) {
             const aiContent = groqData.choices?.[0]?.message?.content;
             if (aiContent) {
               markdownReport = aiContent;
-              break;
+              break; // Break loop on successful response
             }
           }
         } catch {
-          // Fallback to direct report on error
+          // If a Groq key fails or hits rate limits, proceed to the next key
         }
       }
     }

@@ -5,12 +5,16 @@ import VinHero from './components/VinHero';
 import VehicleReport from './components/VehicleReport';
 import AdSlot from './components/AdSlot';
 import AdBlockModal from './components/AdBlockModal';
+import { Turnstile } from '@marsidev/react-turnstile';
 
 export default function Home() {
   const [report, setReport] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [currentVin, setCurrentVin] = useState<string>('');
+  
+  // Track the CAPTCHA validation token
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   // Adsterra Banner Keys
   const DESKTOP_BANNER_KEY = '1dd64051e9d639d812a0e21d0c1c421f'; // 728x90
@@ -22,11 +26,19 @@ export default function Home() {
     setReport(null);
     setCurrentVin(vin);
 
+    // Prevent submission if the CAPTCHA isn't solved or loaded yet
+    if (!turnstileToken) {
+      setError('Please complete the security check (CAPTCHA) before decoding.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch('/api/decode', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vin }),
+        // Pass both the VIN and the token to your backend
+        body: JSON.stringify({ vin, turnstileToken }), 
       });
 
       const data = await res.json();
@@ -53,6 +65,16 @@ export default function Home() {
 
         {/* VIN Search Hero */}
         <VinHero onDecode={handleDecode} loading={loading} />
+
+        {/* ── CLOUDFLARE TURNSTILE WIDGET ── */}
+        <div className="flex justify-center my-4">
+          <Turnstile
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+            onSuccess={(token) => setTurnstileToken(token)}
+            onExpire={() => setTurnstileToken(null)}
+            onError={() => setTurnstileToken(null)}
+          />
+        </div>
 
         {/* Error State */}
         {error && (
