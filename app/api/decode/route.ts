@@ -1,15 +1,10 @@
 import { NextResponse } from 'next/server';
 
-// Helper to safely parse single or comma-separated API keys from environment variables
 const parseApiKeys = (envVar?: string): string[] => {
   if (!envVar) return [];
-  return envVar
-    .split(',')
-    .map((key) => key.trim())
-    .filter(Boolean);
+  return envVar.split(',').map((key) => key.trim()).filter(Boolean);
 };
 
-// Extracts multiple Groq & Serper keys (supports comma-separated values or legacy variables)
 const rawGroq = process.env.GROQ_API_KEYS || [process.env.GROQ_API_KEY, process.env.GROQ_API_KEY_FALLBACK].filter(Boolean).join(',');
 const GROQ_API_KEYS = parseApiKeys(rawGroq);
 
@@ -22,193 +17,105 @@ export async function POST(request: Request) {
   try {
     const { vin, turnstileToken } = await request.json();
 
-    // ── 1. CLOUDFLARE TURNSTILE CAPTCHA VERIFICATION ──
+    // ── 1. CAPTCHA VERIFICATION ──
     if (TURNSTILE_SECRET_KEY) {
       if (!turnstileToken) {
-        return NextResponse.json(
-          { error: 'Security check missing. Please complete the CAPTCHA.' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Security check missing. Please complete the CAPTCHA.' }, { status: 400 });
       }
-
-      const turnstileRes = await fetch(
-        'https://challenges.cloudflare.com/turnstile/v0/siteverify',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            secret: TURNSTILE_SECRET_KEY,
-            response: turnstileToken,
-          }),
-        }
-      );
-
+      const turnstileRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ secret: TURNSTILE_SECRET_KEY, response: turnstileToken }),
+      });
       const turnstileData = await turnstileRes.json();
       if (!turnstileData.success) {
-        return NextResponse.json(
-          { error: 'Security check failed. Automated bot traffic detected.' },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: 'Security check failed. Automated bot traffic detected.' }, { status: 403 });
       }
     }
 
-    // ── 2. VALIDATE VIN INPUT & SYNTAX ──
+    // ── 2. VALIDATE VIN ──
     if (!vin || typeof vin !== 'string' || vin.trim().length !== 17) {
-      return NextResponse.json(
-        { error: 'Invalid VIN. Please provide a valid 17-character VIN.' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid VIN. Please provide a valid 17-character VIN.' }, { status: 400 });
     }
-
     const cleanVin = vin.toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, '');
 
-    if (cleanVin.length !== 17) {
-      return NextResponse.json(
-        { error: 'Invalid VIN syntax. ISO standard VINs cannot contain letters I, O, or Q.' },
-        { status: 400 }
-      );
-    }
-
-    // ── 3. FETCH OFFICIAL SPECS FROM NHTSA VPIC API ──
-    const nhtsaRes = await fetch(
-      `https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${cleanVin}?format=json`,
-      { headers: { Accept: 'application/json' }, cache: 'no-store' }
-    );
-
-    if (!nhtsaRes.ok) {
-      throw new Error(`NHTSA API responded with status ${nhtsaRes.status}`);
-    }
-
+    // ── 3. NHTSA API ──
+    const nhtsaRes = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${cleanVin}?format=json`, { cache: 'no-store' });
+    if (!nhtsaRes.ok) throw new Error(`NHTSA API responded with status ${nhtsaRes.status}`);
     const nhtsaData = await nhtsaRes.json();
     const results = nhtsaData.Results?.[0] || {};
 
-    // ── 4. FETCH LIVE RECALLS FROM NHTSA API ──
-    let recallStatus = 'Check Complete: No Open Safety Recalls Identified';
-    try {
-      const recallRes = await fetch(
-        `https://api.nhtsa.gov/recalls/recallsByVin/${cleanVin}?format=json`,
-        { headers: { Accept: 'application/json' }, cache: 'no-store' }
-      );
-
-      if (recallRes.ok) {
-        const recallData = await recallRes.json();
-        const count = recallData.count || recallData.results?.length || 0;
-        if (count > 0) {
-          recallStatus = `⚠️ ${count} Open Safety Recall(s) Found on Record`;
-        }
-      }
-    } catch {
-      recallStatus = 'NHTSA Recall Database Temporarily Unavailable';
-    }
-
-    // ── 5. MULTI-KEY SERPER WEB SEARCH FALLBACK LOOP ──
+    // ── 4. MULTI-KEY SERPER WEB SEARCH WITH DIAGNOSTICS ──
     let webAuctionResults: string[] = [];
-    if (SERPER_API_KEYS.length > 0) {
-      // Optimized query to accurately find public salvage/auction listings
+    let serperDebugLog = "Serper search did not run.";
+
+    if (SERPER_API_KEYS.length === 0) {
+      serperDebugLog = "❌ FAILED: No Serper API Keys found in environment variables. Check Vercel settings.";
+    } else {
       const searchQuery = `"${cleanVin}" salvage OR accident OR auction OR copart OR iaai OR bidfax`;
+      serperDebugLog = `🔍 Attempting search with ${SERPER_API_KEYS.length} key(s)...`;
 
       for (const apiKey of SERPER_API_KEYS) {
         try {
           const searchRes = await fetch('https://google.serper.dev/search', {
             method: 'POST',
-            headers: {
-              'X-API-KEY': apiKey,
-              'Content-Type': 'application/json',
-            },
+            headers: { 'X-API-KEY': apiKey, 'Content-Type': 'application/json' },
             body: JSON.stringify({ q: searchQuery, num: 5 }),
           });
 
           if (searchRes.ok) {
             const searchData = await searchRes.json();
             const hits = searchData.organic || [];
+            
+            serperDebugLog = `✅ SUCCESS: Serper API connected. Found ${hits.length} Google search results.`;
 
             if (hits.length > 0) {
-              webAuctionResults = hits
-                .slice(0, 3)
-                .map(
-                  (item: { title: string; snippet: string; link: string }) =>
-                    `• **${item.title}**: ${item.snippet} ([View Listing](${item.link}))`
-                );
+              webAuctionResults = hits.slice(0, 3).map((item: { title: string; snippet: string; link: string }) =>
+                `• **${item.title}**: ${item.snippet} ([View Listing](${item.link}))`
+              );
             }
-            break; // Exit loop on first working key
+            break;
+          } else {
+            const errorText = await searchRes.text();
+            serperDebugLog = `❌ FAILED: Serper API responded with HTTP ${searchRes.status} - ${errorText}`;
           }
-        } catch {
-          // Automatic fallback to next key if fetch fails
+        } catch (err: any) {
+          serperDebugLog = `❌ FAILED: Network error connecting to Serper - ${err.message}`;
         }
       }
     }
 
-    // ── 6. BUILD BASE DATA PAYLOAD ──
-    const make = results.Make || 'N/A';
-    const model = results.Model || 'N/A';
-    const year = results.ModelYear || 'N/A';
-
-    const plantLocation =
-      [results.PlantCity, results.PlantState, results.PlantCountry]
-        .filter(Boolean)
-        .join(', ') || 'N/A';
-
+    // ── 5. BUILD BASE DATA PAYLOAD ──
     const formattedFields: Record<string, string> = {
-      'Make': make,
-      'Model': model,
-      'Model Year': year,
-      'Body Style': results.BodyClass || 'N/A',
-      'Vehicle Type': results.VehicleType || 'N/A',
-      'Trim': results.Trim || 'N/A',
-      'Series': results.Series || 'N/A',
-      'Displacement (L)': results.DisplacementL ? `${results.DisplacementL}L` : 'N/A',
+      'Make': results.Make || 'N/A',
+      'Model': results.Model || 'N/A',
+      'Model Year': results.ModelYear || 'N/A',
       'Engine HP': results.EngineHP ? `${results.EngineHP} HP` : 'N/A',
-      'Cylinders': results.EngineConfiguration || results.EngineCylinders || 'N/A',
-      'Fuel Type': results.FuelTypePrimary || 'N/A',
-      'Drive Type': results.DriveType || 'N/A',
-      'Transmission': results.TransmissionStyle || 'N/A',
-      'Manufacturer': results.Manufacturer || 'N/A',
-      'Factory Assembly Plant': plantLocation,
-      'Doors': results.Doors || 'N/A',
-      'Official NHTSA Recall Status': recallStatus,
-      'Auction & Salvage Web Check':
-        webAuctionResults.length > 0
+      'Auction & Salvage Web Check': webAuctionResults.length > 0
           ? `Potential Public Records Found Online:\n${webAuctionResults.join('\n')}`
           : 'No public salvage auction records detected via search index',
-      'Market Value Disclaimer':
-        'Resale values vary significantly based on vehicle mileage, title status, and physical condition. Consult live regional market listings for accurate pricing.',
     };
 
     let markdownReport = `### Vehicle Detailed Specification & History Report\n\n`;
     for (const [key, val] of Object.entries(formattedFields)) {
-      if (val) {
-        markdownReport += `**${key}:** ${val}\n`;
-      }
+      if (val) markdownReport += `**${key}:** ${val}\n`;
     }
 
-    // ── 7. MULTI-KEY GROQ AI FORMATTING LOOP ──
+    // ── 6. MULTI-KEY GROQ AI FORMATTING ──
     if (GROQ_API_KEYS.length > 0) {
       for (const apiKey of GROQ_API_KEYS) {
         try {
           const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`,
-            },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
             body: JSON.stringify({
               model: 'llama-3.3-70b-versatile',
               messages: [
                 {
                   role: 'system',
-                  content: `You are an expert automotive inspection engineer. Reformat the provided vehicle specs and search data into clean Markdown.
-
-CRITICAL ACCURACY & FORMATTING INSTRUCTIONS:
-- You MUST preserve all links and snippets provided under "Auction & Salvage Web Check".
-- If "Auction & Salvage Web Check" contains web results, create a dedicated section titled "### 🔍 Online Salvage & Auction Records Found" and output the exact markdown links and snippets provided.
-- Do NOT make up specific dollar prices or fake accident guarantees.
-- Ensure "Factory Assembly Plant" is clearly stated as where the vehicle was originally manufactured.
-- Format fields into clean bold key-value pairs e.g. "**Make:** Ford".`,
+                  content: `You are an expert automotive inspection engineer. Reformat the provided vehicle specs and search data into clean Markdown. Do NOT remove any auction links.`,
                 },
-                {
-                  role: 'user',
-                  content: `Reformat and structure this vehicle report:\n${markdownReport}`,
-                },
+                { role: 'user', content: `Reformat and structure this vehicle report:\n${markdownReport}` },
               ],
               temperature: 0.1,
             }),
@@ -219,18 +126,19 @@ CRITICAL ACCURACY & FORMATTING INSTRUCTIONS:
             const aiContent = groqData.choices?.[0]?.message?.content;
             if (aiContent) {
               markdownReport = aiContent;
-              break; // Exit loop on successful response
+              break;
             }
           }
-        } catch {
-          // Automatic fallback to next Groq key if rate-limited
-        }
+        } catch { /* Move to next key */ }
       }
     }
 
-    return NextResponse.json({ report: markdownReport });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to decode VIN';
-    return NextResponse.json({ error: message }, { status: 500 });
+    // ── 7. APPEND DIAGNOSTICS TO FINAL RENDER ──
+    // This bypasses Groq so the AI cannot accidentally delete your debug logs.
+    const finalRender = `${markdownReport}\n\n---\n### 🔧 System Diagnostic Logs\n**Serper API Status:** ${serperDebugLog}`;
+
+    return NextResponse.json({ report: finalRender });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || 'Failed to decode VIN' }, { status: 500 });
   }
 }
