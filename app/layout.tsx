@@ -14,8 +14,24 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Chassis Decoder - Free Vehicle VIN Inspector',
-  description: 'Instant VIN lookup and detailed specifications report.',
+  title: 'Free VIN Decoder & Chassis Number Checker | Instant Vehicle Specs',
+  description:
+    'Lookup any vehicle VIN or chassis number instantly. Get free detailed specs, engine info, build year, model decoder, and manufacturer specifications.',
+  keywords: [
+    'car vin checker',
+    'chassis decoder',
+    'free vin lookup',
+    'vehicle identification number search',
+    'check chassis number',
+    'vin specification lookup',
+  ],
+  openGraph: {
+    title: 'Free VIN Decoder & Chassis Number Checker',
+    description: 'Instant vehicle specs and chassis lookup tool.',
+    url: 'https://chassis-decoder.vercel.app',
+    siteName: 'Chassis Decoder',
+    type: 'website',
+  },
 };
 
 export default function RootLayout({
