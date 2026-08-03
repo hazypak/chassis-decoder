@@ -6,7 +6,7 @@ interface AdSlotProps {
   width: number;
   height: number;
   adKey: string;
-  className?: string; // 👈 Must be here
+  className?: string; // Fixes TypeScript error
 }
 
 export default function AdSlot({
@@ -15,8 +15,9 @@ export default function AdSlot({
   adKey,
   className = '',
 }: AdSlotProps) {
-  if (!adKey) return null;
+  if (!adKey || adKey.includes('PASTE_')) return null;
 
+  // Explicit https:// fixed here so iframe srcDoc can fetch the ad script
   const adHtml = `
     <!DOCTYPE html>
     <html>
@@ -35,7 +36,7 @@ export default function AdSlot({
             'params' : {}
           };
         </script>
-        <script type="text/javascript" src="//www.highperformanceformat.com/${adKey}/invoke.js"></script>
+        <script type="text/javascript" src="https://www.highperformanceformat.com/${adKey}/invoke.js"></script>
       </body>
     </html>
   `;
@@ -45,7 +46,7 @@ export default function AdSlot({
       <div className="text-[9px] text-slate-500 uppercase tracking-widest mb-1">
         Advertisement
       </div>
-      <div className="max-w-full overflow-x-auto flex justify-center">
+      <div className="max-w-full overflow-x-auto flex justify-center min-h-[90px]">
         <iframe
           srcDoc={adHtml}
           width={width}
