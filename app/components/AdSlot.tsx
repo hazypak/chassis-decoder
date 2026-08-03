@@ -3,19 +3,20 @@
 import React from 'react';
 
 interface AdSlotProps {
-  sticky?: boolean;
-  width?: number;
-  height?: number;
-  adKey?: string;
+  width: number;
+  height: number;
+  adKey: string;
+  className?: string; // 👈 Added optional className here
 }
 
 export default function AdSlot({
-  sticky = false,
-  width = 728,
-  height = 90,
-  adKey = '1dd64051e9d639d812a0e21d0c1c421f',
+  width,
+  height,
+  adKey,
+  className = '',
 }: AdSlotProps) {
-  // Isolated HTML shell so global atOptions variables don't overwrite each other
+  if (!adKey) return null;
+
   const adHtml = `
     <!DOCTYPE html>
     <html>
@@ -40,23 +41,20 @@ export default function AdSlot({
   `;
 
   return (
-    <div
-      className={`
-        w-full flex flex-col items-center justify-center my-4 overflow-hidden
-        ${sticky ? 'sticky bottom-0 z-50 bg-slate-950/90 backdrop-blur-md py-2 border-t border-slate-800' : ''}
-      `}
-    >
-      <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">
+    <div className={`flex flex-col items-center justify-center overflow-hidden my-3 w-full max-w-full ${className}`}>
+      <div className="text-[9px] text-slate-500 uppercase tracking-widest mb-1">
         Advertisement
       </div>
-      <iframe
-        srcDoc={adHtml}
-        width={width}
-        height={height}
-        className="border-0 overflow-hidden"
-        scrolling="no"
-        title="Advertisement"
-      />
+      <div className="max-w-full overflow-x-auto flex justify-center">
+        <iframe
+          srcDoc={adHtml}
+          width={width}
+          height={height}
+          className="border-0 overflow-hidden max-w-full"
+          scrolling="no"
+          title="Advertisement"
+        />
+      </div>
     </div>
   );
 }
