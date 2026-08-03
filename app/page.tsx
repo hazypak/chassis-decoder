@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import VinHero from './components/VinHero';
 import VehicleReport from './components/VehicleReport';
 import AdSlot from './components/AdSlot';
-import NativeAdSlot from './components/NativeAdSlot';
 import AdBlockModal from './components/AdBlockModal';
 
 export default function Home() {
@@ -12,6 +11,10 @@ export default function Home() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [currentVin, setCurrentVin] = useState<string>('');
+
+  // 🔑 Your Exact Adsterra Keys
+  const DESKTOP_BANNER_KEY = '1dd64051e9d639d812a0e21d0c1c421f'; // 728x90
+  const MOBILE_BANNER_KEY  = '3f22827be29f8731c42231da442b0b56'; // 300x250
 
   const handleDecode = async (vin: string) => {
     setLoading(true);
@@ -41,32 +44,39 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 px-4 py-6 md:py-10 flex flex-col items-center relative">
+    <main className="min-h-screen bg-slate-950 text-slate-100 px-4 py-6 md:py-10 flex flex-col items-center">
       <div className="w-full max-w-4xl space-y-6">
         
-        {/* 1. Top Leaderboard Banner (728x90) */}
-        <AdSlot width={728} height={90} adKey="1dd64051e9d639d812a0e21d0c1c421f" />
+        {/* ── 1. TOP BANNER ── */}
+        {/* Desktop Header (728x90) */}
+        <AdSlot width={728} height={90} adKey={DESKTOP_BANNER_KEY} className="hidden md:flex" />
+        {/* Mobile Header (300x250) */}
+        <AdSlot width={300} height={250} adKey={MOBILE_BANNER_KEY} className="flex md:hidden" />
 
-        {/* Hero VIN Search Section */}
+        {/* VIN Search Section */}
         <VinHero onDecode={handleDecode} loading={loading} />
 
         {/* Error Notification */}
         {error && (
-          <div className="bg-red-950/80 border border-red-800 text-red-300 p-4 rounded-xl text-center font-medium shadow-lg">
+          <div className="bg-red-950/80 border border-red-800 text-red-300 p-4 rounded-xl text-center font-medium shadow-lg text-sm">
             ⚠️ {error}
           </div>
         )}
 
-        {/* 2. Middle Native Banner Ad */}
-        <NativeAdSlot />
-
-        {/* Render Vehicle Report */}
+        {/* Vehicle Report Output */}
         {report && (
           <VehicleReport rawReport={report} vin={currentVin} />
         )}
+
+        {/* ── 2. BOTTOM BANNER ── */}
+        {/* Desktop Footer (728x90) */}
+        <AdSlot width={728} height={90} adKey={DESKTOP_BANNER_KEY} className="hidden md:flex" />
+        {/* Mobile Footer (300x250) */}
+        <AdSlot width={300} height={250} adKey={MOBILE_BANNER_KEY} className="flex md:hidden" />
+
       </div>
 
-      {/* Anti-Adblock Detector Modal */}
+      {/* Anti-Adblock Detector */}
       <AdBlockModal />
     </main>
   );
