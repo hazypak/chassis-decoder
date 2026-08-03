@@ -40,10 +40,22 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 px-4 py-8 md:py-12 flex flex-col items-center">
+    <main className="min-h-screen bg-slate-950 text-slate-100 px-4 py-8 md:py-12 flex flex-col items-center relative">
+      
+      {/* ── LEFT SIDEBAR AD (Visible on Desktop 1400px+) ── */}
+      <aside className="hidden 2xl:flex fixed left-4 top-24 flex-col items-center z-40">
+        <AdSlot width={160} height={600} />
+      </aside>
+
+      {/* ── RIGHT SIDEBAR AD (Visible on Desktop 1400px+) ── */}
+      <aside className="hidden 2xl:flex fixed right-4 top-24 flex-col items-center z-40">
+        <AdSlot width={160} height={600} />
+      </aside>
+
+      {/* ── MAIN CONTENT AREA ── */}
       <div className="w-full max-w-5xl space-y-8">
         {/* Top Ad Slot */}
-        <AdSlot id="ad-slot-top" />
+        <AdSlot />
 
         {/* Hero Input Section */}
         <VinHero onDecode={handleDecode} loading={loading} />
@@ -56,7 +68,7 @@ export default function Home() {
         )}
 
         {/* Middle In-Feed Ad Slot */}
-        <AdSlot id="ad-slot-middle" />
+        <AdSlot />
 
         {/* Render Vehicle Report */}
         {report && (
@@ -64,7 +76,7 @@ export default function Home() {
         )}
 
         {/* Bottom Sticky Ad Slot */}
-        <AdSlot id="ad-slot-bottom" sticky />
+        <AdSlot sticky />
       </div>
 
       {/* Anti-Adblock Modal Detector */}

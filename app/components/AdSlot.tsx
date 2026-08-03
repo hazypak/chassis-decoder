@@ -1,44 +1,43 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 
 interface AdSlotProps {
-  id: string;
   sticky?: boolean;
+  width?: number;
+  height?: number;
+  adKey?: string;
 }
 
-export default function AdSlot({ id, sticky = false }: AdSlotProps) {
-  const adRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!adRef.current) return;
-
-    // Clear previous contents on re-render
-    adRef.current.innerHTML = '';
-
-    const container = adRef.current;
-
-    // 1. Configure options
-    const confScript = document.createElement('script');
-    confScript.type = 'text/javascript';
-    confScript.text = `
-      atOptions = {
-        'key' : '1dd64051e9d639d812a0e21d0c1c421f',
-        'format' : 'iframe',
-        'height' : 90,
-        'width' : 728,
-        'params' : {}
-      };
-    `;
-
-    // 2. Invoke script
-    const invokeScript = document.createElement('script');
-    invokeScript.type = 'text/javascript';
-    invokeScript.src = '//www.highperformanceformat.com/1dd64051e9d639d812a0e21d0c1c421f/invoke.js';
-
-    container.appendChild(confScript);
-    container.appendChild(invokeScript);
-  }, []);
+export default function AdSlot({
+  sticky = false,
+  width = 728,
+  height = 90,
+  adKey = '1dd64051e9d639d812a0e21d0c1c421f',
+}: AdSlotProps) {
+  // Isolated HTML shell so global atOptions variables don't overwrite each other
+  const adHtml = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <style>
+          body { margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; background: transparent; }
+        </style>
+      </head>
+      <body>
+        <script type="text/javascript">
+          atOptions = {
+            'key' : '${adKey}',
+            'format' : 'iframe',
+            'height' : ${height},
+            'width' : ${width},
+            'params' : {}
+          };
+        </script>
+        <script type="text/javascript" src="//www.highperformanceformat.com/${adKey}/invoke.js"></script>
+      </body>
+    </html>
+  `;
 
   return (
     <div
@@ -50,10 +49,13 @@ export default function AdSlot({ id, sticky = false }: AdSlotProps) {
       <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">
         Advertisement
       </div>
-      <div
-        ref={adRef}
-        id={id}
-        className="min-h-[90px] min-w-[300px] md:min-w-[728px] flex items-center justify-center rounded-lg"
+      <iframe
+        srcDoc={adHtml}
+        width={width}
+        height={height}
+        className="border-0 overflow-hidden"
+        scrolling="no"
+        title="Advertisement"
       />
     </div>
   );
