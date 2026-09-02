@@ -65,8 +65,8 @@ export default function AdBlockModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
-      <div className="bg-slate-900 border border-red-500/30 rounded-2xl p-6 sm:p-8 max-w-md w-full text-center shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-neutral-900/40 backdrop-blur-sm p-4">
+      <div className="bg-white border border-border rounded-2xl p-6 sm:p-8 max-w-md w-full text-center shadow-2xl space-y-5">
         
         {/* Warning Icon */}
         <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mx-auto text-3xl">
@@ -75,18 +75,18 @@ export default function AdBlockModal() {
 
         {/* Text Details */}
         <div className="space-y-2">
-          <h2 className="text-xl font-bold text-slate-100">
+          <h2 className="text-xl font-bold text-neutral-900">
             Ad Blocker Detected
           </h2>
-          <p className="text-slate-400 text-sm leading-relaxed">
+          <p className="text-muted text-sm leading-relaxed">
             We rely on advertising to keep this Chassis & VIN decoder free for everyone. Please turn off your ad blocker to access the tool.
           </p>
         </div>
 
         {/* Instructions Box */}
-        <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800 text-xs text-slate-400 space-y-1.5 text-left">
-          <p className="font-semibold text-slate-300">How to continue:</p>
-          <ol className="list-decimal list-inside space-y-1 text-slate-400">
+        <div className="bg-neutral-50 p-3.5 rounded-xl border border-border text-xs text-muted space-y-1.5 text-left">
+          <p className="font-semibold text-neutral-700">How to continue:</p>
+          <ol className="list-decimal list-inside space-y-1 text-muted">
             <li>Click your AdBlocker or Shield icon in your browser.</li>
             <li>Select <strong>Pause on this site</strong> or toggle off.</li>
             <li>Click the refresh button below.</li>
@@ -112,7 +112,7 @@ export default function AdBlockModal() {
               d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
             />
           </svg>
-          I've Disabled It — Refresh Page
+          I&apos;ve Disabled It — Refresh Page
         </button>
       </div>
     </div>

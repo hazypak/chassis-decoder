@@ -43,10 +43,14 @@ export default function AdSlot({
 
   return (
     <div className={`flex flex-col items-center justify-center overflow-hidden my-3 w-full max-w-full ${className}`}>
-      <div className="text-[9px] text-slate-500 uppercase tracking-widest mb-1">
+      <div className="text-[9px] text-neutral-400 uppercase tracking-widest mb-1">
         Advertisement
       </div>
-      <div className="max-w-full overflow-x-auto flex justify-center min-h-[90px]">
+      {/* Reserve the ad's real height so it never shifts surrounding layout (CLS) */}
+      <div
+        className="max-w-full overflow-x-auto flex justify-center"
+        style={{ minHeight: height }}
+      >
         <iframe
           srcDoc={adHtml}
           width={width}

@@ -5,11 +5,10 @@ import { parseReport } from './parseReport';
 import ReportHeader from './ReportHeader';
 import SpecCard, { type SpecItem } from './SpecCard';
 import PdfExportButton from './PdfExportButton';
-import ScrollIndicator from './ScrollIndicator';
 
 function LayersIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <polygon points="12 2 2 7 12 12 22 7 12 2" />
       <polyline points="2 17 12 22 22 17" />
       <polyline points="2 12 12 17 22 12" />
@@ -19,44 +18,25 @@ function LayersIcon() {
 
 function ZapIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
     </svg>
   );
 }
 
-function ShieldAlertIcon() {
+function FactoryIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+      <path d="M6 18h.01M10 18h.01M14 18h.01M18 18h.01" />
+    </svg>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-    </svg>
-  );
-}
-
-function GavelIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-      <path d="m14.5 12.5-8 8a2.12 2.12 0 0 1-3-3l8-8" />
-      <path d="m16 16 6-6" />
-      <path d="m8 8 6-6" />
-    </svg>
-  );
-}
-
-function DollarIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-      <line x1="12" y1="1" x2="12" y2="23" />
-      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-    </svg>
-  );
-}
-
-function LockFileIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14 2 14 8 20 8" />
     </svg>
   );
 }
@@ -82,110 +62,102 @@ export default function VehicleReport({ report, rawReport, vin = '' }: VehicleRe
 
   if (!reportContent) return null;
 
+  // ── Only real, decoded fields. Missing values are omitted, never faked. ──
   const coreSpecs: SpecItem[] = [
     { label: 'Make',         value: data.make,        highlight: true  },
     { label: 'Model',        value: data.model,       highlight: true  },
     { label: 'Model Year',   value: data.year,        highlight: true  },
     { label: 'Body Style',   value: data.bodyClass,   highlight: false },
     { label: 'Series',       value: data.series,      highlight: false },
+    { label: 'Trim',         value: data.trim,        highlight: false },
     { label: 'Vehicle Type', value: data.vehicleType, highlight: false },
     { label: 'Doors',        value: data.doors,       highlight: false },
   ].filter(i => Boolean(i.value));
 
   const engineSpecs: SpecItem[] = [
-    { label: 'Engine Size',  value: data.engineDisplacement ? `${parseFloat(data.engineDisplacement).toFixed(1)}L` : '3.0L', highlight: true  },
+    { label: 'Engine Size',  value: data.engineDisplacement, highlight: true  },
     { label: 'Cylinders',    value: data.cylinders,          highlight: false },
-    { label: 'Horsepower',   value: data.engineHP ? `${data.engineHP} HP` : '473 HP', highlight: true },
-    { label: 'Fuel System',  value: data.fuelType,           highlight: true  },
-    { label: 'Drivetrain',   value: data.driveType,          highlight: false },
+    { label: 'Horsepower',   value: data.engineHP,           highlight: true  },
+    { label: 'Fuel Type',    value: data.fuelType,           highlight: true  },
+    { label: 'Drive Type',   value: data.driveType,          highlight: false },
     { label: 'Transmission', value: data.transmission,       highlight: false },
   ].filter(i => Boolean(i.value));
 
-  const accidentSpecs: SpecItem[] = [
-    { label: 'Accident Record', value: 'No Major Damage Found', highlight: true },
-    { label: 'Airbag Deployment', value: 'No Events Reported', highlight: false },
-    { label: 'Structural Damage', value: 'Clean Frame Verified', highlight: false },
-    { label: 'Flood / Fire Check', value: 'Clear Record', highlight: false },
-  ];
+  const manufacturingSpecs: SpecItem[] = [
+    { label: 'Assembly Plant', value: data.plant || [data.plantCity, data.plantState, data.plantCountry].filter(Boolean).join(', '), highlight: false },
+    { label: 'Manufacturer',   value: data.manufacturerName, highlight: false },
+  ].filter(i => Boolean(i.value));
 
-  const auctionSpecs: SpecItem[] = [
-    { label: 'Copart / IAAI Log', value: 'Clean / No Salvage Sales', highlight: true },
-    { label: 'NMVTIS Title Brand', value: 'Clean Title Verified', highlight: true },
-    { label: 'Odometer Rollback', value: 'Normal Progression', highlight: false },
-    { label: 'Junk & Salvage Check', value: 'Passed All Audits', highlight: false },
-  ];
-
-  const marketSpecs: SpecItem[] = [
-    { label: 'Estimated Value', value: data.extras?.['Estimated Value'] || '$36,644 USD', highlight: true },
-    { label: 'Safety Recalls', value: '0 Open Recalls', highlight: true },
-    { label: 'Plant Location', value: `${data.plantCity || 'Munich'}, ${data.plantCountry || 'Germany'}`, highlight: false },
-  ];
-
-  const lockedInsuranceHistory: SpecItem[] = [
-    { label: 'Total Loss Claims', value: '0 Claims Filed', highlight: true },
-    { label: 'Insurance Fraud Flag', value: 'Passed Verification', highlight: false },
-    { label: 'Haist / Theft Log', value: 'Clear (Not Stolen)', highlight: false },
-    { label: 'Previous Ownership Count', value: '2 Previous Owners', highlight: true },
-  ];
-
-  const lockedInspectionScorecard: SpecItem[] = [
-    { label: 'Structural Integrity', value: '98/100 Grade A', highlight: true },
-    { label: 'Transmission Health', value: 'Pass (Audited)', highlight: false },
-    { label: 'Brake System Check', value: 'Pass (Audited)', highlight: false },
-    { label: 'Emissions Audit', value: 'State Compliant', highlight: false },
-  ];
+  const disclaimer = data.extras?.['Market Value Disclaimer'];
+  const hasRecords = Boolean(data.recallStatus || data.salvageLog);
 
   return (
     <div className="w-full">
-      <ScrollIndicator targetId="vehicle-report" label="Scroll to Detailed Report" />
-
-      <section id="vehicle-report" className="w-full max-w-5xl mx-auto px-4 pb-16 pt-4" aria-label="Vehicle Report">
+      <section id="vehicle-report" className="w-full max-w-5xl mx-auto px-1 sm:px-4 pb-12 pt-2" aria-label="Vehicle Report">
         {/* Top Download Button */}
-        <div className="flex justify-end mb-4 no-print">
+        <div className="flex justify-end mb-3 no-print">
           <PdfExportButton data={data} vin={vin} />
         </div>
 
-        {/* Web Display Container */}
-        <div id="vehicle-report-content" className="flex flex-col gap-5 bg-slate-950 p-4 md:p-6 rounded-3xl border border-slate-800 shadow-2xl">
+        {/* Report body */}
+        <div id="vehicle-report-content" className="flex flex-col gap-4 bg-card p-4 md:p-6 rounded-2xl border border-border">
           <ReportHeader data={data} vin={vin} />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            <SpecCard title="Core Specs" icon={<LayersIcon />} items={coreSpecs} accentColor="cyan" />
-            <SpecCard title="Engine & Drivetrain" icon={<ZapIcon />} items={engineSpecs} accentColor="blue" />
-            <SpecCard title="Accident & Structural History" icon={<ShieldAlertIcon />} items={accidentSpecs} accentColor="green" />
-            <SpecCard title="Auction & Title Records" icon={<GavelIcon />} items={auctionSpecs} accentColor="purple" />
-            <SpecCard title="Market & Valuation" icon={<DollarIcon />} items={marketSpecs} accentColor="amber" />
-
-            {/* Blurred Teaser Cards on Web */}
-            <SpecCard
-              title="Full Ownership & Claims Log"
-              icon={<LockFileIcon />}
-              items={lockedInsuranceHistory}
-              accentColor="cyan"
-              isLockedPreview={true}
-            />
-            <SpecCard
-              title="Detailed Technical Scorecard"
-              icon={<LockFileIcon />}
-              items={lockedInspectionScorecard}
-              accentColor="purple"
-              isLockedPreview={true}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {coreSpecs.length > 0 && (
+              <SpecCard title="Core Specs" icon={<LayersIcon />} items={coreSpecs} />
+            )}
+            {engineSpecs.length > 0 && (
+              <SpecCard title="Engine & Drivetrain" icon={<ZapIcon />} items={engineSpecs} />
+            )}
+            {manufacturingSpecs.length > 0 && (
+              <SpecCard title="Manufacturing" icon={<FactoryIcon />} items={manufacturingSpecs} />
+            )}
           </div>
 
-          <p className="text-[11px] text-slate-500 text-center px-4 mt-2">
-            Official vehicle specification, NMVTIS database cross-reference, and title inspection report.
+          {/* Records & safety — real NHTSA recall + web salvage index results only */}
+          {hasRecords && (
+            <div className="rounded-2xl bg-card border border-border p-5">
+              <div className="flex items-center gap-2.5 border-b border-border pb-3 mb-4">
+                <span className="text-accent"><ShieldIcon /></span>
+                <h3 className="text-xs font-semibold tracking-wider uppercase text-neutral-600">
+                  Records &amp; Safety
+                </h3>
+              </div>
+              <div className="flex flex-col gap-4">
+                {data.recallStatus && (
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-medium text-muted">NHTSA Recall Check</span>
+                    <span className="text-sm text-foreground break-words">{data.recallStatus}</span>
+                  </div>
+                )}
+                {data.salvageLog && (
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-medium text-muted">Public Salvage / Auction Index</span>
+                    <span className="text-sm text-foreground whitespace-pre-line break-words">{data.salvageLog}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <p className="text-[11px] text-muted text-center px-4 mt-1">
+            Specifications decoded from the official NHTSA vPIC database. Recall status and
+            salvage results are retrieved live from public records at lookup time.
           </p>
+          {disclaimer && (
+            <p className="text-[11px] text-muted text-center px-4">{disclaimer}</p>
+          )}
         </div>
 
-        {/* Large CTA Banner */}
-        <div className="mt-8 p-6 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900/90 to-cyan-950/40 border border-cyan-500/30 text-center flex flex-col items-center gap-4 no-print shadow-2xl">
+        {/* Download CTA — truthful copy; the PDF mirrors the verified data above */}
+        <div className="mt-6 p-6 rounded-2xl bg-neutral-50 border border-border text-center flex flex-col items-center gap-4 no-print">
           <div className="max-w-xl">
-            <h3 className="text-lg font-bold text-white mb-1">
-              Want the Complete Inspection History & Unlocked Scorecard?
+            <h3 className="text-base font-semibold text-foreground mb-1">
+              Save this report
             </h3>
-            <p className="text-xs text-slate-400">
-              Download the official PDF report to reveal unblurred title history, insurance claim records, structural audits, and complete technical specifications.
+            <p className="text-xs text-muted">
+              Download a formatted PDF of the verified specifications and record checks above.
             </p>
           </div>
           <PdfExportButton data={data} vin={vin} variant="large" />

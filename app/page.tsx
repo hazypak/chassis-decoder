@@ -61,7 +61,7 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 px-4 py-6 md:py-10 flex flex-col items-center">
+    <main className="min-h-screen bg-background text-foreground px-4 py-6 md:py-10 flex flex-col items-center">
       <div className="w-full max-w-4xl space-y-6">
         
         {/* ── TOP BANNER ── */}
@@ -72,7 +72,8 @@ export default function Home() {
         <VinHero onDecode={handleDecode} loading={loading} />
 
         {/* ── CLOUDFLARE TURNSTILE WIDGET ── */}
-        <div className="flex justify-center my-4">
+        {/* min-h reserves the widget's space so it doesn't shift layout on load */}
+        <div className="flex justify-center items-center my-4 min-h-[65px]">
           <Turnstile
             ref={turnstileRef}
             siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ''}
@@ -84,7 +85,7 @@ export default function Home() {
 
         {/* Error State */}
         {error && (
-          <div className="bg-red-950/80 border border-red-800 text-red-300 p-4 rounded-xl text-center font-medium shadow-lg text-sm">
+          <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-center font-medium text-sm">
             ⚠️ {error}
           </div>
         )}

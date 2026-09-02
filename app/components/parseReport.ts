@@ -32,10 +32,15 @@ export interface VehicleData {
   transmission: string;
 
   // Manufacturing
+  plant: string;            // combined "City, State, Country" from the API
   plantCity: string;
   plantCountry: string;
   plantState: string;
   manufacturerName: string;
+
+  // Records (real, API-derived)
+  recallStatus: string;     // official NHTSA recall lookup result
+  salvageLog: string;       // real Copart / IAAI web-index search result
 
   // Safety / misc
   doors: string;
@@ -52,7 +57,6 @@ export interface VehicleData {
 const FIELD_MAP: Record<string, keyof Omit<VehicleData, 'extras'>> = {
   // Make
   'make': 'make',
-  'manufacturer': 'make',
 
   // Model
   'model': 'model',
@@ -102,10 +106,24 @@ const FIELD_MAP: Record<string, keyof Omit<VehicleData, 'extras'>> = {
   'transmission': 'transmission',
 
   // Manufacturing
+  'factory assembly plant': 'plant',
+  'assembly plant': 'plant',
+  'manufacturing plant': 'plant',
   'plant city': 'plantCity',
   'plant country': 'plantCountry',
   'plant state': 'plantState',
   'manufacturer name': 'manufacturerName',
+  'manufacturer': 'manufacturerName',
+
+  // Records (real API lookups)
+  'official nhtsa recall status': 'recallStatus',
+  'nhtsa recall status': 'recallStatus',
+  'recall status': 'recallStatus',
+  'official nhtsa recall': 'recallStatus',
+  'copart / iaai log': 'salvageLog',
+  'copart/iaai log': 'salvageLog',
+  'salvage records': 'salvageLog',
+  'auction registry search': 'salvageLog',
 
   // Safety
   'doors': 'doors',
@@ -141,7 +159,8 @@ export function parseReport(report?: string): VehicleData {
   const data: VehicleData = {
     make: '', model: '', year: '', trim: '', series: '', bodyClass: '', vehicleType: '',
     engineDisplacement: '', cylinders: '', engineHP: '', fuelType: '', driveType: '', transmission: '',
-    plantCity: '', plantCountry: '', plantState: '', manufacturerName: '',
+    plant: '', plantCity: '', plantCountry: '', plantState: '', manufacturerName: '',
+    recallStatus: '', salvageLog: '',
     doors: '', seatBelts: '', abs: '', airBags: '',
     extras: {},
   };
@@ -236,13 +255,13 @@ export function countryFlag(country?: string): string {
   return '🌐';
 }
 
-/** Returns a CSS class name for the fuel type tag. */
+/** Returns light-theme Tailwind classes for the fuel-type tag. */
 export function fuelTagClass(fuelType?: string): string {
   const f = (fuelType || '').toLowerCase();
-  if (f.includes('electric') || f.includes('bev') || f.includes('ev')) return 'tag-fuel-ev';
-  if (f.includes('hybrid') || f.includes('phev') || f.includes('hev')) return 'tag-fuel-hybrid';
-  if (f.includes('diesel') || f.includes('cng') || f.includes('lpg')) return 'tag-fuel-diesel';
-  return 'tag-fuel-gas';
+  if (f.includes('electric') || f.includes('bev') || f.includes('ev')) return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+  if (f.includes('hybrid') || f.includes('phev') || f.includes('hev')) return 'bg-teal-50 text-teal-700 border border-teal-200';
+  if (f.includes('diesel') || f.includes('cng') || f.includes('lpg')) return 'bg-amber-50 text-amber-700 border border-amber-200';
+  return 'bg-neutral-100 text-neutral-700 border border-neutral-200';
 }
 
 /** Returns a human-readable vehicle title. */
