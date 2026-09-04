@@ -4,8 +4,7 @@ interface AdSlotProps {
   className?: string;
 }
 
-// Placeholder ad slot. Reserves the banner's footprint without loading any
-// third-party ad scripts.
+
 export default function AdSlot({ width, height, className = '' }: AdSlotProps) {
   return (
     <div className={`flex justify-center my-3 w-full ${className}`}>
