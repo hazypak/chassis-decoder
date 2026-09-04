@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 
-// ── 1. MATHEMATICAL VIN CHECKSUM VALIDATION (ISO 3779 / 49 CFR PART 565) ──
+// Validates the VIN's 9th-position check digit per ISO 3779.
 function isValidVINChecksum(vin: string): boolean {
   if (vin.length !== 17) return false;
-  if (/[IOQ]/i.test(vin)) return false; // Letters I, O, and Q are strictly illegal in ISO standard VINs
+  if (/[IOQ]/i.test(vin)) return false; // I, O and Q are never valid in a VIN
 
   const weights = [8, 7, 6, 5, 4, 3, 2, 10, 0, 9, 8, 7, 6, 5, 4, 3, 2];
   const transliteration: Record<string, number> = {
@@ -27,7 +27,7 @@ function isValidVINChecksum(vin: string): boolean {
   return vin[8].toUpperCase() === expectedCheckDigit;
 }
 
-// ── HELPER: PARSE SINGLE OR COMMA-SEPARATED API KEYS ──
+// Accepts a single key or a comma-separated list.
 const parseApiKeys = (envVar?: string): string[] => {
   if (!envVar) return [];
   return envVar
@@ -36,7 +36,6 @@ const parseApiKeys = (envVar?: string): string[] => {
     .filter(Boolean);
 };
 
-// Extract multi-key pools
 const rawGroq = process.env.GROQ_API_KEYS || [process.env.GROQ_API_KEY, process.env.GROQ_API_KEY_FALLBACK].filter(Boolean).join(',');
 const GROQ_API_KEYS = parseApiKeys(rawGroq);
 
@@ -49,7 +48,7 @@ export async function POST(request: Request) {
   try {
     const { vin, turnstileToken } = await request.json();
 
-    // ── 2. CAPTCHA VERIFICATION (Blocks Bot Traffic) ──
+    // Verify the Turnstile token, but only if a secret is configured.
     if (TURNSTILE_SECRET_KEY) {
       if (!turnstileToken) {
         return NextResponse.json(
@@ -79,7 +78,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // ── 3. STRICT VIN FORMATTING & CHECKSUM REJECTION ──
     if (!vin || typeof vin !== 'string' || vin.trim().length !== 17) {
       return NextResponse.json(
         { error: 'Invalid VIN. Please provide a valid 17-character VIN.' },
@@ -96,7 +94,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Mathematical verification of the 9th check digit
     if (!isValidVINChecksum(cleanVin)) {
       return NextResponse.json(
         { error: 'Invalid VIN Checksum: This VIN is mathematically invalid or mistyped. Please double-check your input.' },
@@ -104,7 +101,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // ── 4. FETCH OFFICIAL FACTORY SPECS FROM NHTSA VPIC API ──
+    // Decode the VIN against NHTSA's vPIC database.
     const nhtsaRes = await fetch(
       `https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${cleanVin}?format=json`,
       { headers: { Accept: 'application/json' }, cache: 'no-store' }
@@ -117,8 +114,8 @@ export async function POST(request: Request) {
     const nhtsaData = await nhtsaRes.json();
     const results = nhtsaData.Results?.[0] || {};
 
-    // ── 5. FETCH LIVE OFFICIAL SAFETY RECALLS ──
-    let recallStatus = 'Check Complete: No Open Safety Recalls Identified';
+    // Check for open recalls.
+    let recallStatus = 'No open safety recalls found';
     try {
       const recallRes = await fetch(
         `https://api.nhtsa.gov/recalls/recallsByVin/${cleanVin}?format=json`,
@@ -129,14 +126,14 @@ export async function POST(request: Request) {
         const recallData = await recallRes.json();
         const count = recallData.count || recallData.results?.length || 0;
         if (count > 0) {
-          recallStatus = `⚠️ ${count} Open Safety Recall(s) Found on Record`;
+          recallStatus = `${count} open safety recall(s) on record`;
         }
       }
     } catch {
-      recallStatus = 'NHTSA Recall Database Unavailable';
+      recallStatus = 'Recall database unavailable';
     }
 
-    // ── 6. MULTI-KEY SERPER API FALLBACK LOOP ──
+    // Optional: look up public salvage/auction records via Serper.
     let webAuctionResults: string[] = [];
     if (SERPER_API_KEYS.length > 0) {
       const searchQuery = `"${cleanVin}" salvage OR accident OR auction OR copart OR iaai OR bidfax`;
@@ -160,18 +157,17 @@ export async function POST(request: Request) {
                 .slice(0, 3)
                 .map(
                   (item: { title: string; snippet: string; link: string }) =>
-                    `⚠️ Record found on ${new URL(item.link).hostname}: "${item.title}" - ${item.snippet} (${item.link})`
+                    `Record found on ${new URL(item.link).hostname}: "${item.title}" - ${item.snippet} (${item.link})`
                 );
             }
             break;
           }
         } catch {
-          // Automatic key failover
+          // try the next key
         }
       }
     }
 
-    // ── 7. BUILD COMPLETE & TRUTHFUL DATA PAYLOAD ──
     const make = results.Make || 'N/A';
     const model = results.Model || 'N/A';
     const year = results.ModelYear || 'N/A';
@@ -181,7 +177,6 @@ export async function POST(request: Request) {
         .filter(Boolean)
         .join(', ') || 'N/A';
 
-    // Full 19-field technical specification payload
     const formattedFields: Record<string, string> = {
       'Make': make,
       'Model': model,
@@ -215,7 +210,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // ── 8. MULTI-KEY GROQ AI FORMATTING LOOP (ZERO VARIANCE) ──
+    // Optional: let Groq normalise the markdown formatting.
     if (GROQ_API_KEYS.length > 0) {
       for (const apiKey of GROQ_API_KEYS) {
         try {
@@ -243,7 +238,7 @@ STRICT ACCURACY INSTRUCTIONS:
                   content: `Reformat and structure this vehicle report:\n${markdownReport}`,
                 },
               ],
-              temperature: 0.0, // Hard zero to guarantee 0% hallucination
+              temperature: 0,
             }),
           });
 
@@ -256,7 +251,7 @@ STRICT ACCURACY INSTRUCTIONS:
             }
           }
         } catch {
-          // Automatic Groq key failover
+          // try the next key
         }
       }
     }

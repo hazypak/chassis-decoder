@@ -1,17 +1,6 @@
-/**
- * parseReport.ts
- *
- * Parses the Markdown / plain-text report string returned by /api/decode
- * into a structured VehicleData object.
- *
- * The parser is intentionally flexible — it handles multiple common formats:
- *   - "**Key:** Value"          (bold Markdown key)
- *   - "Key: Value"              (plain key-value)
- *   - "| Key | Value |"         (Markdown table row)
- *   - "- **Key:** Value"        (list item with bold key)
- *
- * Any field not recognised is placed in `extras` for graceful fallback rendering.
- */
+// Turns the markdown report from /api/decode into a structured object.
+// Handles "**Key:** Value", "Key: Value", and "| Key | Value |" rows;
+// anything unrecognised goes into `extras`.
 
 export interface VehicleData {
   // Header / identity
@@ -52,8 +41,7 @@ export interface VehicleData {
   extras: Record<string, string>;
 }
 
-// ── Field alias map ────────────────────────────────────────────
-// Maps normalised lowercase keys → VehicleData field names.
+// Maps normalised (lowercase) keys to VehicleData fields.
 const FIELD_MAP: Record<string, keyof Omit<VehicleData, 'extras'>> = {
   // Make
   'make': 'make',
@@ -135,7 +123,6 @@ const FIELD_MAP: Record<string, keyof Omit<VehicleData, 'extras'>> = {
   'air bags': 'airBags',
 };
 
-// ── Normalise a raw key string ─────────────────────────────────
 function normalise(raw: string): string {
   return raw
     .replace(/\*\*/g, '')        // strip Markdown bold markers
@@ -145,7 +132,6 @@ function normalise(raw: string): string {
     .toLowerCase();
 }
 
-// ── Strip Markdown formatting from a value ─────────────────────
 function cleanValue(raw: string): string {
   return raw
     .replace(/\*\*/g, '')
@@ -154,7 +140,6 @@ function cleanValue(raw: string): string {
     .trim();
 }
 
-// ── Main parser ────────────────────────────────────────────────
 export function parseReport(report?: string): VehicleData {
   const data: VehicleData = {
     make: '', model: '', year: '', trim: '', series: '', bodyClass: '', vehicleType: '',
@@ -176,7 +161,7 @@ export function parseReport(report?: string): VehicleData {
     let rawKey = '';
     let rawValue = '';
 
-    // ── Markdown table row: | Key | Value | ──────────────────
+    // Markdown table row: | Key | Value |
     if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
       const cells = trimmed.split('|').map(c => c.trim()).filter(Boolean);
       if (cells.length >= 2 && !cells[0].match(/^[-:]+$/)) {
@@ -184,7 +169,7 @@ export function parseReport(report?: string): VehicleData {
         rawValue = cells[1];
       }
     }
-    // ── Key: Value (with optional leading list marker / bold) ──
+    // Key: Value, with an optional list marker or bold wrapper
     else {
       const match = trimmed.match(/^[-*•]?\s*\*{0,2}([^:*]+?)\*{0,2}\s*:\s*(.+)$/);
       if (match) {
@@ -216,8 +201,6 @@ export function parseReport(report?: string): VehicleData {
 
   return data;
 }
-
-// ── Derived helpers ────────────────────────────────────────────
 
 /** Returns a country flag emoji for a given country name. */
 export function countryFlag(country?: string): string {

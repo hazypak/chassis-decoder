@@ -2,14 +2,13 @@
 
 import React, { useRef, useState } from 'react';
 
-// ── Sample VINs ────────────────────────────────────────────────
-// Checksum-valid VINs (verified against the app's own ISO 3779 validator).
+// Checksum-valid sample VINs used by the "Try" buttons.
 const SAMPLE_VINS = [
   { label: 'Sample Mustang', vin: '1ZVBP8AM2C5281209' },
   { label: 'Sample Tesla',   vin: '5YJ3E1EA5KF328931' },
 ];
 
-// ── Icons (inline SVG to avoid extra deps) ─────────────────────
+// Inline icons, so we don't pull in an icon library.
 function SearchIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -47,13 +46,11 @@ function LoaderIcon() {
   );
 }
 
-// ── Types ──────────────────────────────────────────────────────
 interface VinHeroProps {
   onDecode: (vin: string) => void;
   loading: boolean;
 }
 
-// ── Component ──────────────────────────────────────────────────
 export default function VinHero({ onDecode, loading }: VinHeroProps) {
   const [vin, setVin] = useState('');
   const [focused, setFocused] = useState(false);

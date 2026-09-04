@@ -3,11 +3,6 @@
 import React, { useState } from 'react';
 import type { VehicleData } from './parseReport';
 
-// --------------------------------------------------------------------------
-// MONETIZATION: Your Active Adsterra Smartlink / Direct Link
-// --------------------------------------------------------------------------
-const AD_REDIRECT_URL = 'https://www.effectivecpmnetwork.com/hveqs89m?key=a849ea2b58bdb362d84b129feda796de';
-
 function DownloadIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -49,18 +44,8 @@ export default function PdfExportButton({
 }: PdfExportButtonProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
-  async function generateNativeVectorPdf() {
+  async function generatePdf() {
     if (isGenerating) return;
-
-    // 1. Trigger Monetization Ad Link in a new browser tab
-    if (AD_REDIRECT_URL) {
-      try {
-        window.open(AD_REDIRECT_URL, '_blank', 'noopener,noreferrer');
-      } catch (e) {
-        console.warn('Ad pop-up blocked:', e);
-      }
-    }
-
     setIsGenerating(true);
 
     try {
@@ -72,7 +57,7 @@ export default function PdfExportButton({
       const CONTENT_W = PAGE_W - MARGIN * 2;
       let y = MARGIN;
 
-      // --- BRAND HEADER ---
+      // Header band
       doc.setFillColor(15, 23, 42); // Dark navy header band
       doc.rect(0, 0, PAGE_W, 24, 'F');
 
@@ -88,7 +73,7 @@ export default function PdfExportButton({
 
       y = 32;
 
-      // --- VEHICLE TITLE SUMMARY ---
+      // Title box
       doc.setFillColor(248, 250, 252);
       doc.setDrawColor(226, 232, 240);
       doc.roundedRect(MARGIN, y, CONTENT_W, 20, 2, 2, 'FD');
@@ -111,7 +96,7 @@ export default function PdfExportButton({
 
       y += 26;
 
-      // --- HELPER: DRAW A KEY/VALUE TABLE ---
+      // Draws a two-column key/value table.
       const drawTable = (sectionTitle: string, rows: [string, string][], startY: number): number => {
         doc.setFillColor(30, 41, 59);
         doc.rect(MARGIN, startY, CONTENT_W, 7, 'F');
@@ -146,7 +131,7 @@ export default function PdfExportButton({
         return currY + 6;
       };
 
-      // --- HELPER: DRAW A WRAPPED TEXT BLOCK (for long record strings) ---
+      // Draws a block of wrapped text, for the longer record strings.
       const drawBlock = (sectionTitle: string, entries: [string, string][], startY: number): number => {
         doc.setFillColor(30, 41, 59);
         doc.rect(MARGIN, startY, CONTENT_W, 7, 'F');
@@ -175,7 +160,7 @@ export default function PdfExportButton({
         return currY + 4;
       };
 
-      // --- SECTION 1: FACTORY SPECIFICATIONS (real values only) ---
+      // Specs
       const engineParts = [data.engineDisplacement, data.engineHP, data.cylinders && `${data.cylinders} cyl`]
         .filter(Boolean)
         .join('  ·  ');
@@ -191,7 +176,7 @@ export default function PdfExportButton({
         ['Manufacturer', data.manufacturerName || 'N/A'],
       ], y);
 
-      // --- SECTION 2: RECORDS (real recall + salvage lookups only) ---
+      // Records
       if (data.recallStatus || data.salvageLog) {
         y = drawBlock('Records & Safety Checks', [
           ['NHTSA Recall Check', data.recallStatus || 'Not available'],
@@ -199,7 +184,7 @@ export default function PdfExportButton({
         ], y);
       }
 
-      // --- FOOTER ---
+      // Footer
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(7.5);
       doc.setTextColor(148, 163, 184);
@@ -210,7 +195,7 @@ export default function PdfExportButton({
       doc.save(`Vehicle_Report_${safeVin}.pdf`);
 
     } catch (err) {
-      console.error('Vector PDF generation error:', err);
+      console.error('PDF generation failed:', err);
     } finally {
       setIsGenerating(false);
     }
@@ -220,7 +205,7 @@ export default function PdfExportButton({
 
   return (
     <button
-      onClick={generateNativeVectorPdf}
+      onClick={generatePdf}
       disabled={isGenerating}
       className={`
         inline-flex items-center justify-center gap-2 font-semibold rounded-xl transition-opacity

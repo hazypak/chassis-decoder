@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Script from 'next/script';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 
@@ -46,12 +45,6 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
-
-        {/* ── ADSTERRA SOCIAL BAR SCRIPT ── */}
-        <Script
-          src="https://pl30667157.effectivecpmnetwork.com/67/1a/8c/671a8cb74ff4235e5ff01ef994353ede.js"
-          strategy="afterInteractive"
-        />
       </body>
     </html>
   );

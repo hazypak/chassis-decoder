@@ -62,7 +62,7 @@ export default function VehicleReport({ report, rawReport, vin = '' }: VehicleRe
 
   if (!reportContent) return null;
 
-  // ── Only real, decoded fields. Missing values are omitted, never faked. ──
+  // Real decoded fields only — missing values are dropped, not faked.
   const coreSpecs: SpecItem[] = [
     { label: 'Make',         value: data.make,        highlight: true  },
     { label: 'Model',        value: data.model,       highlight: true  },
