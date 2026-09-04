@@ -11,7 +11,7 @@ Live: https://chassis-decoder.vercel.app
 - Decodes any valid VIN using NHTSA's public vPIC API (no key needed).
 - Checks NHTSA for open safety recalls on that VIN.
 - Optionally searches the web for salvage/auction records if a Serper key is set.
-- Only shows what actually comes back — missing fields are left out instead of
+- Only shows what actually comes back , missing fields are left out instead of
   guessed. Nothing is faked.
 
 ## Running it locally
@@ -34,12 +34,14 @@ Add them if you want the extra bits:
   Cloudflare Turnstile captcha before a lookup. If they're not set, the captcha
   is skipped.
 - `GROQ_API_KEY` — used to tidy up the report's markdown formatting. Skipped if absent.
-- `SERPER_API_KEY` — used for the salvage/auction web search. Skipped if absent.
+- `SERPER_API_KEY` — used for the salvage/auction web search. Skipped if absent
 
 ## Stack
 
-Next.js (App Router), React, and Tailwind. That's about it.
+Next.js (App Router), React, and Tailwind. Thats about it.
 
 ## Note on ads
 
-The banner slots are just placeholders right now — no ad network is loaded.
+The banner slots are just placeholders right now  no ad network is loaded.
+
+Thats all.
