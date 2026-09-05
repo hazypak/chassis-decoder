@@ -1,9 +1,4 @@
-// Turns the markdown report from /api/decode into a structured object.
-// Handles "**Key:** Value", "Key: Value", and "| Key | Value |" rows;
-// anything unrecognised goes into `extras`.
-
 export interface VehicleData {
-  // Header / identity
   make: string;
   model: string;
   year: string;
@@ -12,7 +7,6 @@ export interface VehicleData {
   bodyClass: string;
   vehicleType: string;
 
-  // Engine & drivetrain
   engineDisplacement: string;
   cylinders: string;
   engineHP: string;
@@ -20,53 +14,42 @@ export interface VehicleData {
   driveType: string;
   transmission: string;
 
-  // Manufacturing
-  plant: string;            // combined "City, State, Country" from the API
+  plant: string;
   plantCity: string;
   plantCountry: string;
   plantState: string;
   manufacturerName: string;
 
-  // Records (real, API-derived)
-  recallStatus: string;     // official NHTSA recall lookup result
-  salvageLog: string;       // real Copart / IAAI web-index search result
+  recallStatus: string;
+  salvageLog: string;
 
-  // Safety / misc
   doors: string;
   seatBelts: string;
   abs: string;
   airBags: string;
 
-  // Raw extras for any unrecognised fields
   extras: Record<string, string>;
 }
 
-// Maps normalised (lowercase) keys to VehicleData fields.
 const FIELD_MAP: Record<string, keyof Omit<VehicleData, 'extras'>> = {
-  // Make
   'make': 'make',
 
-  // Model
   'model': 'model',
   'model year': 'year',
 
-  // Year
   'year': 'year',
   'model year (decoded)': 'year',
 
-  // Trim / Series
   'trim': 'trim',
   'trim level': 'trim',
   'series': 'series',
   'series (decoded)': 'series',
 
-  // Body
   'body class': 'bodyClass',
   'body style': 'bodyClass',
   'body type': 'bodyClass',
   'vehicle type': 'vehicleType',
 
-  // Engine
   'displacement (l)': 'engineDisplacement',
   'displacement (cc)': 'engineDisplacement',
   'displacement (ci)': 'engineDisplacement',
@@ -79,21 +62,17 @@ const FIELD_MAP: Record<string, keyof Omit<VehicleData, 'extras'>> = {
   'horsepower': 'engineHP',
   'engine hp': 'engineHP',
 
-  // Fuel
   'fuel type - primary': 'fuelType',
   'fuel type': 'fuelType',
   'fuel type (primary)': 'fuelType',
   'electrification level': 'fuelType',
 
-  // Drive
   'drive type': 'driveType',
   'drive wheel codes': 'driveType',
 
-  // Transmission
   'transmission style': 'transmission',
   'transmission': 'transmission',
 
-  // Manufacturing
   'factory assembly plant': 'plant',
   'assembly plant': 'plant',
   'manufacturing plant': 'plant',
@@ -103,7 +82,6 @@ const FIELD_MAP: Record<string, keyof Omit<VehicleData, 'extras'>> = {
   'manufacturer name': 'manufacturerName',
   'manufacturer': 'manufacturerName',
 
-  // Records (real API lookups)
   'official nhtsa recall status': 'recallStatus',
   'nhtsa recall status': 'recallStatus',
   'recall status': 'recallStatus',
@@ -113,7 +91,6 @@ const FIELD_MAP: Record<string, keyof Omit<VehicleData, 'extras'>> = {
   'salvage records': 'salvageLog',
   'auction registry search': 'salvageLog',
 
-  // Safety
   'doors': 'doors',
   'number of doors': 'doors',
   'seat belts type': 'seatBelts',
@@ -125,9 +102,9 @@ const FIELD_MAP: Record<string, keyof Omit<VehicleData, 'extras'>> = {
 
 function normalise(raw: string): string {
   return raw
-    .replace(/\*\*/g, '')        // strip Markdown bold markers
-    .replace(/[_`]/g, '')        // strip other Markdown
-    .replace(/\s+/g, ' ')        // collapse whitespace
+    .replace(/\*\*/g, '')
+    .replace(/[_`]/g, '')
+    .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
 }
@@ -136,7 +113,7 @@ function cleanValue(raw: string): string {
   return raw
     .replace(/\*\*/g, '')
     .replace(/[_`]/g, '')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // [text](url) → text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .trim();
 }
 
@@ -150,7 +127,6 @@ export function parseReport(report?: string): VehicleData {
     extras: {},
   };
 
-  // Safe split check: prevent undefined.split() runtime errors
   const safeReport = report || '';
   const lines = safeReport.split('\n');
 
@@ -161,7 +137,6 @@ export function parseReport(report?: string): VehicleData {
     let rawKey = '';
     let rawValue = '';
 
-    // Markdown table row: | Key | Value |
     if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
       const cells = trimmed.split('|').map(c => c.trim()).filter(Boolean);
       if (cells.length >= 2 && !cells[0].match(/^[-:]+$/)) {
@@ -169,7 +144,6 @@ export function parseReport(report?: string): VehicleData {
         rawValue = cells[1];
       }
     }
-    // Key: Value, with an optional list marker or bold wrapper
     else {
       const match = trimmed.match(/^[-*•]?\s*\*{0,2}([^:*]+?)\*{0,2}\s*:\s*(.+)$/);
       if (match) {
@@ -186,12 +160,10 @@ export function parseReport(report?: string): VehicleData {
 
     const fieldName = FIELD_MAP[normKey];
     if (fieldName) {
-      // Only set if not already populated (first match wins)
       if (!data[fieldName]) {
         (data as unknown as Record<string, string>)[fieldName] = value;
       }
     } else {
-      // Store in extras with cleaned key
       const prettyKey = rawKey.replace(/\*\*/g, '').trim();
       if (prettyKey && !data.extras[prettyKey]) {
         data.extras[prettyKey] = value;
@@ -202,7 +174,6 @@ export function parseReport(report?: string): VehicleData {
   return data;
 }
 
-/** Returns a country flag emoji for a given country name. */
 export function countryFlag(country?: string): string {
   const c = (country || '').toLowerCase();
   if (c.includes('united states') || c.includes('usa') || c.includes('u.s.')) return '🇺🇸';
@@ -238,7 +209,6 @@ export function countryFlag(country?: string): string {
   return '🌐';
 }
 
-/** Returns light-theme Tailwind classes for the fuel-type tag. */
 export function fuelTagClass(fuelType?: string): string {
   const f = (fuelType || '').toLowerCase();
   if (f.includes('electric') || f.includes('bev') || f.includes('ev')) return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
@@ -247,7 +217,6 @@ export function fuelTagClass(fuelType?: string): string {
   return 'bg-neutral-100 text-neutral-700 border border-neutral-200';
 }
 
-/** Returns a human-readable vehicle title. */
 export function vehicleTitle(data: VehicleData): string {
   if (!data) return 'Unknown Vehicle';
   const parts = [data.year, data.make, data.model, data.trim].filter(Boolean);

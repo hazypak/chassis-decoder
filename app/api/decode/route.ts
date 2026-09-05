@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 
-// Validates the VIN's 9th-position check digit per ISO 3779.
 function isValidVINChecksum(vin: string): boolean {
   if (vin.length !== 17) return false;
-  if (/[IOQ]/i.test(vin)) return false; // I, O and Q are never valid in a VIN
+  if (/[IOQ]/i.test(vin)) return false;
 
   const weights = [8, 7, 6, 5, 4, 3, 2, 10, 0, 9, 8, 7, 6, 5, 4, 3, 2];
   const transliteration: Record<string, number> = {
@@ -27,7 +26,6 @@ function isValidVINChecksum(vin: string): boolean {
   return vin[8].toUpperCase() === expectedCheckDigit;
 }
 
-// Accepts a single key or a comma-separated list.
 const parseApiKeys = (envVar?: string): string[] => {
   if (!envVar) return [];
   return envVar
@@ -48,7 +46,6 @@ export async function POST(request: Request) {
   try {
     const { vin, turnstileToken } = await request.json();
 
-    // Verify the Turnstile token, but only if a secret is configured.
     if (TURNSTILE_SECRET_KEY) {
       if (!turnstileToken) {
         return NextResponse.json(
@@ -101,7 +98,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Decode the VIN against NHTSA's vPIC database.
     const nhtsaRes = await fetch(
       `https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${cleanVin}?format=json`,
       { headers: { Accept: 'application/json' }, cache: 'no-store' }
@@ -114,7 +110,6 @@ export async function POST(request: Request) {
     const nhtsaData = await nhtsaRes.json();
     const results = nhtsaData.Results?.[0] || {};
 
-    // Check for open recalls.
     let recallStatus = 'No open safety recalls found';
     try {
       const recallRes = await fetch(
@@ -133,7 +128,6 @@ export async function POST(request: Request) {
       recallStatus = 'Recall database unavailable';
     }
 
-    // Optional: look up public salvage/auction records via Serper.
     let webAuctionResults: string[] = [];
     if (SERPER_API_KEYS.length > 0) {
       const searchQuery = `"${cleanVin}" salvage OR accident OR auction OR copart OR iaai OR bidfax`;
@@ -163,7 +157,7 @@ export async function POST(request: Request) {
             break;
           }
         } catch {
-          // try the next key
+          continue;
         }
       }
     }
@@ -210,7 +204,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // Optional: let Groq normalise the markdown formatting.
     if (GROQ_API_KEYS.length > 0) {
       for (const apiKey of GROQ_API_KEYS) {
         try {
@@ -251,7 +244,7 @@ STRICT ACCURACY INSTRUCTIONS:
             }
           }
         } catch {
-          // try the next key
+          continue;
         }
       }
     }

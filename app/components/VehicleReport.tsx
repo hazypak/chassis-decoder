@@ -62,7 +62,6 @@ export default function VehicleReport({ report, rawReport, vin = '' }: VehicleRe
 
   if (!reportContent) return null;
 
-  // Real decoded fields only — missing values are dropped, not faked.
   const coreSpecs: SpecItem[] = [
     { label: 'Make',         value: data.make,        highlight: true  },
     { label: 'Model',        value: data.model,       highlight: true  },
@@ -94,12 +93,10 @@ export default function VehicleReport({ report, rawReport, vin = '' }: VehicleRe
   return (
     <div className="w-full">
       <section id="vehicle-report" className="w-full max-w-5xl mx-auto px-1 sm:px-4 pb-12 pt-2" aria-label="Vehicle Report">
-        {/* Top Download Button */}
         <div className="flex justify-end mb-3 no-print">
           <PdfExportButton data={data} vin={vin} />
         </div>
 
-        {/* Report body */}
         <div id="vehicle-report-content" className="flex flex-col gap-4 bg-card p-4 md:p-6 rounded-2xl border border-border">
           <ReportHeader data={data} vin={vin} />
 
@@ -115,7 +112,6 @@ export default function VehicleReport({ report, rawReport, vin = '' }: VehicleRe
             )}
           </div>
 
-          {/* Records & safety — real NHTSA recall + web salvage index results only */}
           {hasRecords && (
             <div className="rounded-2xl bg-card border border-border p-5">
               <div className="flex items-center gap-2.5 border-b border-border pb-3 mb-4">
@@ -150,7 +146,6 @@ export default function VehicleReport({ report, rawReport, vin = '' }: VehicleRe
           )}
         </div>
 
-        {/* Download CTA — truthful copy; the PDF mirrors the verified data above */}
         <div className="mt-6 p-6 rounded-2xl bg-neutral-50 border border-border text-center flex flex-col items-center gap-4 no-print">
           <div className="max-w-xl">
             <h3 className="text-base font-semibold text-foreground mb-1">

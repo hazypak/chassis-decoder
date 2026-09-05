@@ -6,8 +6,6 @@ import VehicleReport from './components/VehicleReport';
 import AdSlot from './components/AdSlot';
 import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile';
 
-// CAPTCHA only kicks in when a site key is configured, so the app still works
-// in dev / preview without one.
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
 export default function Home() {
@@ -48,7 +46,6 @@ export default function Home() {
       setError(err instanceof Error ? err.message : 'Something went wrong.');
     } finally {
       setLoading(false);
-      // Turnstile tokens are single-use, so reset for the next lookup.
       setTurnstileToken(null);
       turnstileRef.current?.reset();
     }

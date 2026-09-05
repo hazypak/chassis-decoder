@@ -57,8 +57,7 @@ export default function PdfExportButton({
       const CONTENT_W = PAGE_W - MARGIN * 2;
       let y = MARGIN;
 
-      // Header band
-      doc.setFillColor(15, 23, 42); // Dark navy header band
+      doc.setFillColor(15, 23, 42);
       doc.rect(0, 0, PAGE_W, 24, 'F');
 
       doc.setTextColor(255, 255, 255);
@@ -73,7 +72,6 @@ export default function PdfExportButton({
 
       y = 32;
 
-      // Title box
       doc.setFillColor(248, 250, 252);
       doc.setDrawColor(226, 232, 240);
       doc.roundedRect(MARGIN, y, CONTENT_W, 20, 2, 2, 'FD');
@@ -96,7 +94,6 @@ export default function PdfExportButton({
 
       y += 26;
 
-      // Draws a two-column key/value table.
       const drawTable = (sectionTitle: string, rows: [string, string][], startY: number): number => {
         doc.setFillColor(30, 41, 59);
         doc.rect(MARGIN, startY, CONTENT_W, 7, 'F');
@@ -131,7 +128,6 @@ export default function PdfExportButton({
         return currY + 6;
       };
 
-      // Draws a block of wrapped text, for the longer record strings.
       const drawBlock = (sectionTitle: string, entries: [string, string][], startY: number): number => {
         doc.setFillColor(30, 41, 59);
         doc.rect(MARGIN, startY, CONTENT_W, 7, 'F');
@@ -160,7 +156,6 @@ export default function PdfExportButton({
         return currY + 4;
       };
 
-      // Specs
       const engineParts = [data.engineDisplacement, data.engineHP, data.cylinders && `${data.cylinders} cyl`]
         .filter(Boolean)
         .join('  ·  ');
@@ -176,7 +171,6 @@ export default function PdfExportButton({
         ['Manufacturer', data.manufacturerName || 'N/A'],
       ], y);
 
-      // Records
       if (data.recallStatus || data.salvageLog) {
         y = drawBlock('Records & Safety Checks', [
           ['NHTSA Recall Check', data.recallStatus || 'Not available'],
@@ -184,7 +178,6 @@ export default function PdfExportButton({
         ], y);
       }
 
-      // Footer
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(7.5);
       doc.setTextColor(148, 163, 184);

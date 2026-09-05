@@ -1,16 +1,12 @@
 @import "tailwindcss";
 
-/* ──────────────────────────────────────────────────────────────
-   Design tokens — light / neutral minimal.
-   Single restrained accent. Retheme by editing the tokens below.
-   ────────────────────────────────────────────────────────────── */
 :root {
   --background: #ffffff;
   --foreground: #0a0a0a;
-  --muted: #6b7280;        /* secondary text  (neutral-500) */
-  --border: #e5e7eb;       /* hairlines       (neutral-200) */
+  --muted: #6b7280;
+  --border: #e5e7eb;
   --card: #ffffff;
-  --accent: #2563eb;       /* the one accent  (blue-600)    */
+  --accent: #2563eb;
   --accent-foreground: #ffffff;
   color-scheme: light;
 }
@@ -33,8 +29,6 @@ body {
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
-/* Hide non-content chrome when printing to paper. The detailed PDF is built
-   with jsPDF (not window.print), so this only affects an ad-hoc browser print. */
 @media print {
   .no-print { display: none !important; }
 }

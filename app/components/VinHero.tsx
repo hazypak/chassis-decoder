@@ -2,13 +2,11 @@
 
 import React, { useRef, useState } from 'react';
 
-// Checksum-valid sample VINs used by the "Try" buttons.
 const SAMPLE_VINS = [
   { label: 'Sample Mustang', vin: '1ZVBP8AM2C5281209' },
   { label: 'Sample Tesla',   vin: '5YJ3E1EA5KF328931' },
 ];
 
-// Inline icons, so we don't pull in an icon library.
 function SearchIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -84,7 +82,6 @@ export default function VinHero({ onDecode, loading }: VinHeroProps) {
     if (e.key === 'Enter') handleSubmit();
   }
 
-  // Decode button contents, shared between the desktop (inline) and mobile buttons.
   const decodeLabel = loading ? (
     <>
       <LoaderIcon />
@@ -96,7 +93,6 @@ export default function VinHero({ onDecode, loading }: VinHeroProps) {
 
   return (
     <section className="w-full max-w-2xl mx-auto pt-8 pb-4 md:pt-14 md:pb-6 flex flex-col items-center">
-      {/* Headline */}
       <h1 className="text-center font-semibold tracking-tight text-3xl md:text-4xl text-foreground mb-3">
         Decode any vehicle VIN
       </h1>
@@ -105,7 +101,6 @@ export default function VinHero({ onDecode, loading }: VinHeroProps) {
         manufacturing details — free.
       </p>
 
-      {/* Search form */}
       <form onSubmit={handleSubmit} className="w-full">
         <div
           className={`
@@ -136,7 +131,6 @@ export default function VinHero({ onDecode, loading }: VinHeroProps) {
             aria-label="VIN input"
           />
 
-          {/* Character counter */}
           <span
             className={`
               flex-shrink-0 text-xs font-mono font-medium px-1.5
@@ -148,7 +142,6 @@ export default function VinHero({ onDecode, loading }: VinHeroProps) {
             {vin.length}/{MAX_LEN}
           </span>
 
-          {/* Clear button */}
           {vin.length > 0 && (
             <button
               type="button"
@@ -160,7 +153,6 @@ export default function VinHero({ onDecode, loading }: VinHeroProps) {
             </button>
           )}
 
-          {/* Decode button (desktop — inside input) */}
           <button
             type="submit"
             disabled={!isValid || loading}
@@ -171,7 +163,6 @@ export default function VinHero({ onDecode, loading }: VinHeroProps) {
           </button>
         </div>
 
-        {/* Decode button (mobile — below input) */}
         <button
           type="submit"
           disabled={!isValid || loading}
@@ -181,7 +172,6 @@ export default function VinHero({ onDecode, loading }: VinHeroProps) {
           {decodeLabel}
         </button>
 
-        {/* VIN format hint */}
         <p className="mt-2.5 text-center text-xs text-muted">
           Letters A–H, J–N, P–Z and digits 0–9 (no I, O, or Q).
           {remaining > 0 && remaining < MAX_LEN && (
@@ -192,7 +182,6 @@ export default function VinHero({ onDecode, loading }: VinHeroProps) {
         </p>
       </form>
 
-      {/* Sample VIN buttons */}
       <div className="mt-5 flex flex-wrap justify-center gap-2">
         <span className="text-xs text-muted self-center mr-1">Try:</span>
         {SAMPLE_VINS.map(({ label, vin: sampleVin }) => (

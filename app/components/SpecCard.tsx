@@ -17,13 +17,11 @@ interface SpecCardProps {
 export default function SpecCard({ title, icon, items }: SpecCardProps) {
   return (
     <div className="rounded-2xl bg-card border border-border p-5">
-      {/* Header */}
       <div className="flex items-center gap-2.5 border-b border-border pb-3 mb-4">
         <span className="text-accent">{icon}</span>
         <h3 className="text-xs font-semibold tracking-wider uppercase text-neutral-600">{title}</h3>
       </div>
 
-      {/* Key/value grid — values wrap, never truncate */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3.5 gap-x-4">
         {items.map((item, idx) => (
           <div key={idx} className="flex flex-col min-w-0">
